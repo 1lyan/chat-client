@@ -1,0 +1,20 @@
+{
+  "name": "chat-client",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www",
+    "postinstall": "cp node_modules/webrtc-adapter/out/adapter.js ./public/javascripts/adapter.js"
+  },
+  "dependencies": {
+    "cookie-parser": "~1.4.4",
+    "debug": "~2.6.9",
+    "devcert": "^1.2.2",
+    "ejs": "~2.6.1",
+    "express": "~4.16.1",
+    "http-errors": "~1.6.3",
+    "morgan": "~1.9.1",
+    "webrtc-adapter": "^8.1.1",
+    "websocket": "^1.0.34"
+  }
+}
