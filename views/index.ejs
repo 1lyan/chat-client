@@ -23,6 +23,111 @@
   <link href="stylesheets/shared.css" rel="stylesheet">
   <script type="text/javascript" src="javascripts/chatclient.js"></script>
   <script src="javascripts/adapter.js"></script>
+  <script type="text/javascript">
+    const ENTER_KEY = 13;
+
+    const client = new ChatClient('local-video', 'remote-video', 'hangup-button');
+
+    const handleSendButton = () => {
+      const text = document.getElementById("text").value;
+      client.handleSendButton(text);
+      document.getElementById("text").value = "";
+    };
+
+    // Handler for keyboard events. This is used to intercept the return and
+    // enter keys so that we can call send() to transmit the entered text
+    // to the server.
+    const handleKey = (e) => {
+      console.log('key code', e.keyCode)
+      if (document.getElementById("send").disabled) return;
+      if(e.keyCode != ENTER_KEY) return;
+      
+      handleSendButton();
+    };
+
+    const onConnect = () => {
+      client.connect();
+
+      client.connection.onopen = function(evt) {
+        document.getElementById("text").disabled = false;
+        document.getElementById("send").disabled = false;
+      };
+
+      client.connection.onerror = function(evt) {
+        console.dir(evt);
+      }
+
+      client.connection.onmessage = (evt) => {
+        var chatBox = document.querySelector(".chatbox");
+        var text = "";
+        var msg = JSON.parse(evt.data);
+        Logger.log("Message received: ");
+        console.dir(msg);
+        var time = new Date(msg.date);
+        var timeStr = time.toLocaleTimeString();
+
+        switch(msg.type) {
+          case "id":
+            client.clientID = msg.id;
+            let name = document.getElementById("name").value;
+            client.setUsername(name);
+            break;
+
+          case "username":
+            text = "<b>User <em>" + msg.name + "</em> signed in at " + timeStr + "</b><br>";
+            break;
+
+          case "message":
+            text = "(" + timeStr + ") <b>" + msg.name + "</b>: " + msg.text + "<br>";
+            break;
+
+          case "rejectusername":
+            this.myUsername = msg.name;
+            text = "<b>Your username has been set to <em>" + this.myUsername +
+              "</em> because the name you chose is in use.</b><br>";
+            break;
+
+          case "userlist":      // Received an updated user list
+            client.handleUserlistMsg(msg);
+            break;
+
+          // Signaling messages: these messages are used to trade WebRTC
+          // signaling information during negotiations leading up to a video
+          // call.
+
+          case "video-offer":  // Invitation and offer to chat
+            client.handleVideoOfferMsg(msg);
+            break;
+
+          case "video-answer":  // Callee has answered our offer
+            client.handleVideoAnswerMsg(msg);
+            break;
+
+          case "new-ice-candidate": // A new ICE candidate has been received
+            client.handleNewICECandidateMsg(msg);
+            break;
+
+          case "hang-up": // The other peer has hung up the call
+            client.handleHangUpMsg(msg);
+            break;
+
+          // Unknown message; output to console for debugging.
+
+          default:
+            Logger.logError("Unknown message received:");
+            Logger.logError(msg);
+        }
+
+        // If there's text to insert into the chat buffer, do so now, then
+        // scroll the chat panel so that the new text is visible.
+
+        if (text.length) {
+          chatBox.innerHTML += text;
+          chatBox.scrollTop = chatBox.scrollHeight - chatBox.clientHeight;
+        }
+      };
+    }
+  </script>
 </head>
 <body>
   <div class="container">
@@ -34,14 +139,14 @@
       </p>
       <p>Click a username in the user list to ask them to enter a one-on-one video chat with you.</p>
       <p>Enter a username: <input id="name" type="text" maxlength="12" required autocomplete="username" inputmode="verbatim" placeholder="Username">
-        <input type="button" name="login" value="Log in" onclick="connect()"></p>
+        <input type="button" name="login" value="Log in" onclick="onConnect()"></p>
     </div>
     <ul class="userlistbox"></ul>
     <div class="chatbox"></div>
     <div class="camerabox">
-      <video id="received_video" autoplay></video>
-      <video id="local_video" autoplay muted></video>
-      <button id="hangup-button" onclick="hangUpCall();" role="button" disabled>
+      <video id="remote-video" autoplay></video>
+      <video id="local-video" autoplay muted></video>
+      <button id="hangup-button" onclick="client.hangUpCall()" role="button" disabled>
         Hang Up
       </button>
     </div>
